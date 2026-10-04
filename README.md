@@ -2,9 +2,10 @@
 
 The world's first sarcastic AI clock. Ask "What time is it right now?" — a vision model reads a clock photo and answers, with attitude.
 
-- **Phase 1 — upload.** Upload a clock photo; `POST /api/read-clock` returns `{is_clock, time, quip}`.
-- **Phase 2 — live camera.** Start the webcam preview; Ask grabs the current frame (canvas snapshot) and posts it to the same endpoint.
-- **No API keys in the browser.** The key lives server-side in `.env` (`LLM_API_KEY`).
+- **Upload.** Upload a clock photo; `POST /api/read-clock` returns `{is_clock, time, quip}`.
+- **Webcam.** Start the webcam preview; Ask grabs the current frame (canvas snapshot) and posts it to the same endpoint.
+- **Ring fixed camera.** Watch Ring embeds the go2rtc player; Ask posts `{ring: true}` and the backend pulls the gateway frame itself (`GO2RTC_URL`, `RING_SRC` in `.env`).
+- **No API keys in the browser.** Keys live server-side in `.env` (`LLM_API_KEY`, Ring refresh token stays in go2rtc).
 
 ## Run locally
 

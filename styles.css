@@ -49,9 +49,11 @@ input[type="text"], input[type="file"] {
   background: #000;
 }
 #preview.mirrored { transform: scaleX(-1); }
+#ringview { width: 100%; aspect-ratio: 16 / 7.2; border: 0; border-radius: 8px; margin-top: 12px; background: #000; }
 .btn-ghost { background: transparent; color: #ffd60a; border: 1px solid #ffd60a; }
 .answer { text-align: center; }
 .time { font-size: 4.5rem; font-weight: 800; letter-spacing: 1px; }
 .quip { color: #ffd60a; font-style: italic; }
+.digital { color: #7dfd9a; font-family: ui-monospace, "SF Mono", Menlo, monospace; }
 .err { color: #ff6b6b; }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

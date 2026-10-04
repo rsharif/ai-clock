@@ -20,18 +20,21 @@
   </section>
 
   <section class="card">
-    <h2>1 · Use live camera</h2>
+    <h2>1 · Watch live</h2>
     <div class="row">
       <button id="cam-btn" class="btn" type="button">Start camera</button>
+      <button id="ring-btn" class="btn" type="button">Watch Ring</button>
       <button id="mirror-btn" class="btn btn-ghost" type="button">Mirror: off</button>
       <span id="cam-status" class="muted">camera off — upload works without it</span>
     </div>
     <video id="preview" autoplay playsinline muted hidden></video>
+    <iframe id="ringview" title="Ring camera stream" hidden></iframe>
     <canvas id="frame" hidden></canvas>
   </section>
 
   <section class="card answer">
     <div id="time-label" class="time">—</div>
+    <p id="digital" class="digital" hidden></p>
     <p id="quip" class="quip">Point me at a clock. Any clock. I have nothing else to do.</p>
     <p id="err" class="err" hidden></p>
   </section>

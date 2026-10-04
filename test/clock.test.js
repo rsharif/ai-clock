@@ -11,6 +11,17 @@ test("prompt guards against second-hand and swapped-hand misreads", function () 
   assert.match(PROMPT, /hour_pos/i);
 });
 
+test("toDigital converts analog readings", function () {
+  const { toDigital } = require("../lib/clock");
+  assert.deepEqual(toDigital("11:42 AM"), { twelve: "11:42 AM", twentyFour: "11:42" });
+  assert.deepEqual(toDigital("3:42 PM"), { twelve: "3:42 PM", twentyFour: "15:42" });
+  assert.deepEqual(toDigital("12:00 AM"), { twelve: "12:00 AM", twentyFour: "00:00" });
+  assert.deepEqual(toDigital("12:26 PM"), { twelve: "12:26 PM", twentyFour: "12:26" });
+  assert.deepEqual(toDigital("11:15"), { twelve: "11:15", twentyFour: "11:15" });
+  assert.equal(toDigital("not a clock"), null);
+  assert.equal(toDigital(null), null);
+});
+
 test("buildMessages wraps the frame as an image_url part", function () {
   const msgs = buildMessages("data:image/jpeg;base64,abc", "What time is it?");
   assert.equal(msgs.length, 1);

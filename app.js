@@ -12,6 +12,11 @@ function $(id) {
 
 let stream = null;
 let mirrored = false;
+let lastReading = null;
+let ringMode = false;
+// go2rtc's own player page (auto-selects WebRTC/MSE/HLS). Same machine here;
+// LAN or Tailscale deployments change this host.
+const RING_PLAYER_URL = "http://localhost:1984/stream.html?src=clockcam";
 
 function showErr(msg) {
   const el = $("err");
@@ -24,13 +29,42 @@ function showErr(msg) {
   el.textContent = msg;
 }
 
+function renderDigital(d) {
+  const el = $("digital");
+  if (!d || (!d.twelve && !d.twentyFour)) {
+    el.hidden = true;
+    el.textContent = "";
+    return;
+  }
+  el.hidden = false;
+  el.textContent = "Digital — 12-hour: " + d.twelve + " · 24-hour: " + d.twentyFour;
+}
+
 function render(result) {
+  lastReading = result;
   if (result && result.is_clock && result.time) {
     $("time-label").textContent = result.time;
   } else {
     $("time-label").textContent = "Not a clock";
   }
+  renderDigital(result && result.digital);
   $("quip").textContent = (result && result.quip) || "";
+}
+
+// "convert to digital" reuses the last reading: no new photo, no model call.
+function maybeConvertLocally() {
+  const q = $("question").value || "";
+  if (!/digital|convert/i.test(q)) return false;
+  if (!lastReading || !lastReading.is_clock || !lastReading.time) {
+    showErr("Read a clock first, then ask me to convert it.");
+    return true;
+  }
+  showErr(null);
+  const d = lastReading.digital;
+  $("time-label").textContent = (d && d.twelve) || lastReading.time;
+  renderDigital(d);
+  $("quip").textContent = "Converted from the last reading — no new photo needed.";
+  return true;
 }
 
 async function askWithForm(file) {
@@ -102,17 +136,42 @@ async function askWithSnapshot() {
   ctx.drawImage(video, 0, 0);
   ctx.restore();
   const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
+  await postRead({ image: dataUrl, question: $("question").value },
+    "Grabbing a frame… hold still, preferably forever.");
+}
+
+// Shared POST + render for every source. Ring mode sends no pixels: the
+// backend pulls the gateway frame itself. Slow models get progress updates
+// so the page never looks dead.
+async function postRead(payload, waitingQuip) {
   showErr(null);
   $("time-label").textContent = "…";
-  $("quip").textContent = "Grabbing a frame… hold still, preferably forever.";
+  $("quip").textContent = waitingQuip;
+  const started = Date.now();
+  const stages = [
+    "Still squinting…",
+    "Comparing hand lengths…",
+    "Double-checking the hour hand…",
+    "The model is thinking hard…",
+  ];
+  let n = 0;
+  const tick = setInterval(function () {
+    const s = Math.floor((Date.now() - started) / 1000);
+    $("quip").textContent =
+      stages[Math.min(n++, stages.length - 1)] + " (" + s + "s)";
+  }, 7000);
+  const done = function () {
+    clearInterval(tick);
+  };
   let res;
   try {
     res = await fetch("/api/read-clock", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: dataUrl, question: $("question").value }),
+      body: JSON.stringify(payload),
     });
   } catch (e) {
+    done();
     showErr("Backend unreachable — is the server running?");
     $("time-label").textContent = "—";
     return;
@@ -120,6 +179,7 @@ async function askWithSnapshot() {
   const data = await res.json().catch(function () {
     return null;
   });
+  done();
   if (!res.ok) {
     showErr((data && data.error) || "Read failed.");
     $("time-label").textContent = "—";
@@ -128,7 +188,17 @@ async function askWithSnapshot() {
   render(data);
 }
 
+async function askRing() {
+  await postRead({ ring: true, question: $("question").value },
+    "Asking the Ring camera… waking it up if it dozed off.");
+}
+
 $("ask-btn").addEventListener("click", function () {
+  if (maybeConvertLocally()) return;
+  if (ringMode) {
+    askRing();
+    return;
+  }
   if (stream) {
     askWithSnapshot();
     return;
@@ -144,12 +214,7 @@ $("ask-btn").addEventListener("click", function () {
 $("cam-btn").addEventListener("click", async function () {
   showErr(null);
   if (stream) {
-    stream.getTracks().forEach(function (t) {
-      t.stop();
-    });
-    stream = null;
-    $("preview").hidden = true;
-    $("cam-btn").textContent = "Start camera";
+    stopWebcam();
     $("cam-status").textContent = "camera off — upload works without it";
     return;
   }
@@ -181,4 +246,33 @@ $("mirror-btn").addEventListener("click", function () {
   mirrored = !mirrored;
   $("preview").classList.toggle("mirrored", mirrored);
   $("mirror-btn").textContent = mirrored ? "Mirror: on" : "Mirror: off";
+});
+
+function stopWebcam() {
+  if (!stream) return;
+  stream.getTracks().forEach(function (t) {
+    t.stop();
+  });
+  stream = null;
+  $("preview").hidden = true;
+  $("cam-btn").textContent = "Start camera";
+}
+
+$("ring-btn").addEventListener("click", function () {
+  showErr(null);
+  ringMode = !ringMode;
+  if (ringMode) {
+    stopWebcam();
+    $("cam-status").textContent = "ring live — Ask grabs the gateway frame";
+    const view = $("ringview");
+    view.src = RING_PLAYER_URL;
+    view.hidden = false;
+    $("preview").hidden = true;
+    $("ring-btn").textContent = "Ring: on";
+  } else {
+    $("ringview").hidden = true;
+    $("ringview").removeAttribute("src");
+    $("cam-status").textContent = "camera off — upload works without it";
+    $("ring-btn").textContent = "Watch Ring";
+  }
 });

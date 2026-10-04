@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/clock.test.js"
+    "test": "node --test test/clock.test.js test/ring-frame.test.js"
   },
   "engines": {
     "node": ">=18"
