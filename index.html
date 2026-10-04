@@ -20,14 +20,10 @@
   </section>
 
   <section class="card">
-    <h2>1 · Upload a clock photo</h2>
-    <input id="file" type="file" accept="image/*">
-  </section>
-
-  <section class="card">
-    <h2>2 · Or use live camera</h2>
+    <h2>1 · Use live camera</h2>
     <div class="row">
       <button id="cam-btn" class="btn" type="button">Start camera</button>
+      <button id="mirror-btn" class="btn btn-ghost" type="button">Mirror: off</button>
       <span id="cam-status" class="muted">camera off — upload works without it</span>
     </div>
     <video id="preview" autoplay playsinline muted hidden></video>
@@ -38,6 +34,11 @@
     <div id="time-label" class="time">—</div>
     <p id="quip" class="quip">Point me at a clock. Any clock. I have nothing else to do.</p>
     <p id="err" class="err" hidden></p>
+  </section>
+
+  <section class="card">
+    <h2>2 · Or upload a clock photo</h2>
+    <input id="file" type="file" accept="image/*">
   </section>
 </main>
 <script src="app.js"></script>

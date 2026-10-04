@@ -39,7 +39,17 @@ input[type="text"], input[type="file"] {
 }
 .btn:active { transform: translateY(1px); }
 .muted { color: #999; font-size: 0.85rem; align-self: center; }
-#preview { width: 100%; border-radius: 8px; margin-top: 12px; background: #000; }
+#preview {
+  width: 100%;
+  /* ~20% shorter than a full 16:9 frame; excess cropped, snapshot unaffected. */
+  aspect-ratio: 16 / 7.2;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-top: 12px;
+  background: #000;
+}
+#preview.mirrored { transform: scaleX(-1); }
+.btn-ghost { background: transparent; color: #ffd60a; border: 1px solid #ffd60a; }
 .answer { text-align: center; }
 .time { font-size: 4.5rem; font-weight: 800; letter-spacing: 1px; }
 .quip { color: #ffd60a; font-style: italic; }

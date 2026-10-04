@@ -11,6 +11,7 @@ function $(id) {
 }
 
 let stream = null;
+let mirrored = false;
 
 function showErr(msg) {
   const el = $("err");
@@ -58,16 +59,48 @@ async function askWithForm(file) {
   render(data);
 }
 
+function videoReady(video) {
+  return Boolean(stream) && video.videoWidth !== 0;
+}
+
+async function waitForVideo(video) {
+  if (videoReady(video)) return true;
+  if (!stream) return false;
+  // Stream just started but metadata hasn't landed yet — wait up to 3s.
+  await new Promise(function (resolve) {
+    const done = function () {
+      video.removeEventListener("loadedmetadata", done);
+      resolve();
+    };
+    video.addEventListener("loadedmetadata", done);
+    setTimeout(done, 3000);
+  });
+  return videoReady(video);
+}
+
 async function askWithSnapshot() {
   const video = $("preview");
-  if (!stream || video.videoWidth === 0) {
+  if (!(await waitForVideo(video))) {
     showErr("Camera is not running — upload a photo instead.");
     return;
   }
+  // Upscale 2x: adds no detail, but gives the vision model more pixels
+  // of thin clock hands to work with.
+  const SCALE = 2;
   const canvas = $("frame");
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  canvas.getContext("2d").drawImage(video, 0, 0);
+  canvas.width = video.videoWidth * SCALE;
+  canvas.height = video.videoHeight * SCALE;
+  const ctx = canvas.getContext("2d");
+  ctx.save();
+  if (mirrored) {
+    // Match what the mirrored preview shows, so the model reads the same image.
+    ctx.translate(canvas.width, 0);
+    ctx.scale(-SCALE, SCALE);
+  } else {
+    ctx.scale(SCALE, SCALE);
+  }
+  ctx.drawImage(video, 0, 0);
+  ctx.restore();
   const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
   showErr(null);
   $("time-label").textContent = "…";
@@ -142,4 +175,10 @@ $("cam-btn").addEventListener("click", async function () {
   video.hidden = false;
   $("cam-btn").textContent = "Stop camera";
   $("cam-status").textContent = "live — Ask grabs the current frame";
+});
+
+$("mirror-btn").addEventListener("click", function () {
+  mirrored = !mirrored;
+  $("preview").classList.toggle("mirrored", mirrored);
+  $("mirror-btn").textContent = mirrored ? "Mirror: on" : "Mirror: off";
 });
