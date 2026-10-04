@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Clock — the world's first sarcastic clock</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<main class="wrap">
+  <h1>AI Clock</h1>
+  <p class="tag">The world's first AI clock. It can see time. It judges you for asking.</p>
+
+  <section class="card">
+    <label for="question">Ask the clock</label>
+    <div class="row">
+      <input id="question" type="text" value="What time is it right now?" maxlength="300">
+      <button id="ask-btn" class="btn" type="button">Ask</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>1 · Upload a clock photo</h2>
+    <input id="file" type="file" accept="image/*">
+  </section>
+
+  <section class="card">
+    <h2>2 · Or use live camera</h2>
+    <div class="row">
+      <button id="cam-btn" class="btn" type="button">Start camera</button>
+      <span id="cam-status" class="muted">camera off — upload works without it</span>
+    </div>
+    <video id="preview" autoplay playsinline muted hidden></video>
+    <canvas id="frame" hidden></canvas>
+  </section>
+
+  <section class="card answer">
+    <div id="time-label" class="time">—</div>
+    <p id="quip" class="quip">Point me at a clock. Any clock. I have nothing else to do.</p>
+    <p id="err" class="err" hidden></p>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
