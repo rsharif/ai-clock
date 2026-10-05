@@ -97,14 +97,34 @@ $("ask-btn").addEventListener("click", function () {
 $("ringview").src = RING_PLAYER_URL;
 $("cam-status").textContent = "ring live — Ask grabs the gateway frame";
 
-// Tabs: Clock vs Statistics.
+// Tabs: Clock vs Statistics vs Contribute.
+var VIEWS = ["clock", "stats", "contribute"];
+
+// ONE place for the money link: paste the Stripe Payment Link here once it
+// exists (dashboard -> Payment Links). Until then the buttons stay inert.
+var CONTRIBUTE_URL = "";
+
 function showTab(which) {
-  const stats = which === "stats";
-  $("view-clock").hidden = stats;
-  $("view-stats").hidden = !stats;
-  $("tab-clock").classList.toggle("active", !stats);
-  $("tab-stats").classList.toggle("active", stats);
-  if (stats) loadStats();
+  VIEWS.forEach(function (v) {
+    $("view-" + v).hidden = v !== which;
+    $("tab-" + v).classList.toggle("active", v === which);
+  });
+  if (which === "stats") loadStats();
+}
+
+function wireContributeLinks() {
+  const links = document.querySelectorAll(".contribute-link");
+  links.forEach(function (a) {
+    if (CONTRIBUTE_URL) {
+      a.href = CONTRIBUTE_URL;
+      a.target = "_blank";
+      a.rel = "noopener";
+    } else {
+      a.addEventListener("click", function (e) {
+        e.preventDefault();
+      });
+    }
+  });
 }
 
 function fmtCell(v, suffix) {
@@ -166,6 +186,10 @@ $("tab-clock").addEventListener("click", function () {
 $("tab-stats").addEventListener("click", function () {
   showTab("stats");
 });
+$("tab-contribute").addEventListener("click", function () {
+  showTab("contribute");
+});
+wireContributeLinks();
 $("stats-refresh").addEventListener("click", function () {
   loadStats();
 });
