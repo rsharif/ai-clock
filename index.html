@@ -3,46 +3,60 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AI Clock — the world's first sarcastic clock</title>
+<title>AI Clock — the world's first AI clock</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <main class="wrap">
   <h1>AI Clock</h1>
-  <p class="tag">The world's first AI clock. It can see time. It judges you for asking.</p>
+  <p class="tag">The world's first AI clock, watching the wall so you don't have to.</p>
 
+  <nav class="tabs">
+    <button id="tab-clock" class="tab active" type="button">Clock</button>
+    <button id="tab-stats" class="tab" type="button">Statistics</button>
+  </nav>
+
+  <div id="view-clock">
   <section class="card">
-    <label for="question">Ask the clock</label>
     <div class="row">
-      <input id="question" type="text" value="What time is it right now?" maxlength="300">
-      <button id="ask-btn" class="btn" type="button">Ask</button>
+      <button id="ask-btn" class="btn big" type="button">What time is it now?</button>
+      <select id="model" aria-label="Vision model">
+        <option value="spark" selected>Spark (accurate, slow)</option>
+        <option value="gemini">Gemini (balanced)</option>
+        <option value="gemma">Gemma (fast, sloppy)</option>
+      </select>
     </div>
+    <p id="cam-status" class="muted">connecting to the clock…</p>
   </section>
 
   <section class="card">
-    <h2>1 · Watch live</h2>
-    <div class="row">
-      <button id="cam-btn" class="btn" type="button">Start camera</button>
-      <button id="ring-btn" class="btn" type="button">Watch Ring</button>
-      <button id="mirror-btn" class="btn btn-ghost" type="button">Mirror: off</button>
-      <span id="cam-status" class="muted">camera off — upload works without it</span>
-    </div>
-    <video id="preview" autoplay playsinline muted hidden></video>
-    <iframe id="ringview" title="Ring camera stream" hidden></iframe>
-    <canvas id="frame" hidden></canvas>
+    <h2>Live clock</h2>
+    <iframe id="ringview" title="Ring camera stream"></iframe>
   </section>
 
   <section class="card answer">
     <div id="time-label" class="time">—</div>
     <p id="digital" class="digital" hidden></p>
-    <p id="quip" class="quip">Point me at a clock. Any clock. I have nothing else to do.</p>
+    <p class="signup">We have professionals to train you to read a clock — signup for our upcoming Read The Clock program.</p>
     <p id="err" class="err" hidden></p>
   </section>
+  </div>
 
+  <div id="view-stats" hidden>
   <section class="card">
-    <h2>2 · Or upload a clock photo</h2>
-    <input id="file" type="file" accept="image/*">
+    <h2>Model statistics</h2>
+    <div class="row">
+      <button id="stats-refresh" class="btn" type="button">Refresh</button>
+      <span id="stats-status" class="muted"></span>
+    </div>
+    <table id="stats-table">
+      <thead>
+        <tr><th>Model</th><th>Reads</th><th>Accuracy</th><th>Mean in-tokens</th><th>Mean out-tokens</th><th>p90 response</th></tr>
+      </thead>
+      <tbody id="stats-body"></tbody>
+    </table>
   </section>
+  </div>
 </main>
 <script src="app.js"></script>
 </body>

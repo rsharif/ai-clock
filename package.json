@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test test/clock.test.js test/ring-frame.test.js"
+    "test": "node --test test/clock.test.js test/ring-frame.test.js test/model.test.js test/stats.test.js"
   },
   "engines": {
     "node": ">=18"
@@ -14,6 +14,7 @@
   "dependencies": {
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
+    "mongodb": "^7.7.0",
     "multer": "^2.0.1"
   }
 }

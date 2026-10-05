@@ -25,5 +25,10 @@ Camera needs a secure context: `localhost` works; any hosted domain needs HTTPS.
 
 ## API
 
-- `POST /api/read-clock` — multipart `image` (upload) or JSON `{image: dataUrl, question}` (camera snapshot). Returns `{is_clock, time, quip}`.
-- `GET /api/health` — uptime check (reports model + whether the key is set).
+- `POST /api/read-clock` — multipart `image` (upload) or JSON `{image: dataUrl, question}` (camera snapshot), or `{ring: true}` (Ring gateway frame). Returns `{is_clock, time, quip, digital, model_used}`.
+- `GET /api/stats` — per-model rows: reads, accuracy %, mean in/out tokens, p90 response. Needs `MONGO_URI`, else 503.
+- `GET /api/health` — uptime check (reports each model's key status).
+
+## Statistics tab
+
+Every model attempt is stored in MongoDB (`model_usage` collection) with the reading, `expected_response` (the request moment as h:mm AM/PM), `off_by_sec` (how far the reading landed, AM/PM-blind), accuracy (within ±150s of the request), token counts, request/response timestamps, and a success flag. The Statistics tab aggregates one row per model. Set `MONGO_URI` in `.env` (same Atlas approach as the receipt tracker) and restart — without it, reads still work but the tab reports "database not configured".
