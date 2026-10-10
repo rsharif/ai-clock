@@ -94,7 +94,19 @@ $("ask-btn").addEventListener("click", function () {
 });
 
 // Autoplay the wall clock on page open: visitors land on the live stream.
-$("ringview").src = RING_PLAYER_URL;
+// The player host comes from the backend so deployments (Render, VPS) can
+// point at the public go2rtc address; localhost default keeps local dev working.
+fetch("/api/config")
+  .then(function (res) {
+    return res.json();
+  })
+  .then(function (cfg) {
+    if (cfg && cfg.ringPlayerUrl) RING_PLAYER_URL = cfg.ringPlayerUrl;
+  })
+  .catch(function () {})
+  .then(function () {
+    $("ringview").src = RING_PLAYER_URL;
+  });
 $("cam-status").textContent = "ring live — Ask grabs the gateway frame";
 
 // Tabs: Clock vs Statistics vs Contribute.

@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: ai-clock
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: GO2RTC_URL
+        value: https://cam.ai-clock.app
+      - key: RING_SRC
+        value: clockcam
+      - key: RING_PLAYER_URL
+        value: https://cam.ai-clock.app/stream.html?src=clockcam
+      - key: LLM_BASE_URL
+        value: https://api.meta.ai/v1/chat/completions
+      - key: LLM_MODEL
+        value: muse-spark-1.3
+      - key: GEMMA_MODEL
+        value: gemma4:31b
+      - key: GEMINI_MODEL
+        value: gemini-3.8-flash
+      # Secrets — set these in the Render dashboard, never in this file:
+      # LLM_API_KEY, GEMMA_API_KEY, GEMINI_API_KEY, MONGO_URI

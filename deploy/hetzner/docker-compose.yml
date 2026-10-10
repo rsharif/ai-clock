@@ -1,0 +1,36 @@
+services:
+  go2rtc:
+    image: alexxit/go2rtc:latest
+    restart: unless-stopped
+    environment:
+      - TZ=America/New_York
+    env_file:
+      - .env
+    volumes:
+      - ./go2rtc.yaml:/config/go2rtc.yaml:ro
+    expose:
+      - "1984"
+    networks:
+      - camnet
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - go2rtc
+    networks:
+      - camnet
+
+networks:
+  camnet:
+
+volumes:
+  caddy-data:
+  caddy-config:

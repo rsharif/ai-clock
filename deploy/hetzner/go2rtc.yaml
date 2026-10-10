@@ -1,0 +1,11 @@
+# go2rtc config for the Hetzner box. The Ring refresh token arrives via the
+# RING_REFRESH_TOKEN env var (compose .env file) — never committed to git.
+# Camera/device ids come from: curl 'http://localhost:1984/api/ring?refresh_token=<it>'
+streams:
+  clockcam: "ring?refresh_token={env:RING_REFRESH_TOKEN}&camera_id=REPLACE_ME&device_id=REPLACE_ME"
+
+api:
+  listen: ":1984"
+
+log:
+  level: info

@@ -141,6 +141,15 @@ const upload = multer({
 app.use(express.static(path.join(__dirname)));
 app.use(express.json({ limit: "5mb" }));
 
+// Public player URL served to the browser. Local default; deployments set
+// RING_PLAYER_URL to the public go2rtc address (Hetzner box, tunnel, …).
+const RING_PLAYER_URL =
+  process.env.RING_PLAYER_URL || "http://localhost:1984/stream.html?src=clockcam";
+
+app.get("/api/config", function (req, res) {
+  res.json({ ringPlayerUrl: RING_PLAYER_URL });
+});
+
 app.get("/api/health", function (req, res) {
   const models = {};
   ["spark", "gemma", "gemini"].forEach(function (name) {

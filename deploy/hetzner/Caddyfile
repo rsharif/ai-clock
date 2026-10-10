@@ -1,0 +1,5 @@
+# Replace cam.example.com with your real hostname (DNS A record must already
+# point at this box). Caddy fetches and renews TLS automatically.
+cam.example.com {
+	reverse_proxy go2rtc:1984
+}
