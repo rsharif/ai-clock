@@ -31,7 +31,7 @@ Camera needs a secure context: `localhost` works; any hosted domain needs HTTPS.
 
 ## Contribute tab
 
-Contributions go through a Stripe Payment Link (dashboard → Payment Links); no card data touches this app and no money logic lives here. The URL sits in one `CONTRIBUTE_URL` constant at the top of `app.js` — paste the live link there once created. Refunds, receipts, and tracking all happen in the Stripe dashboard. Check the link monthly; if revoked, the buttons go nowhere.
+Contributions go through Stripe's buy button (`stripe-buy-button` in `index.html`, dashboard → Payment Links); no card data touches this app and no money logic lives here. The publishable key is public by design. Currently a **test-mode** snippet (`pk_test_…`) — swap in the live snippet for real money. Refunds, receipts, and tracking all happen in the Stripe dashboard.
 
 ## Statistics tab
 

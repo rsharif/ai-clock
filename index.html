@@ -62,13 +62,14 @@
   <div id="view-contribute" hidden>
   <section class="card">
     <h2>Keep the clock ticking</h2>
-    <p class="muted">Every question costs real money: vision-model tokens per read plus the always-on camera gateway. Contributions buy API credits and keep this running. Payments go through Stripe — no card details ever touch this site.</p>
-    <div class="row">
-      <a class="btn contribute-link" href="#" data-amount="2">$2</a>
-      <a class="btn contribute-link" href="#" data-amount="5">$5</a>
-      <a class="btn contribute-link" href="#" data-amount="10">$10</a>
+    <div class="stripe-wrap">
+    <script async src="https://js.stripe.com/v3/buy-button.js"></script>
+    <stripe-buy-button
+      buy-button-id="buy_btn_1UP4CTFgWw5wlix6aDW62Jcx"
+      publishable-key="pk_test_51UP3KiFgWw5wlix6QAEWVgg5jYkwXgbHLLAfujPW5V6lUtN4SopNiFXrX5WyqAYs8y91KzYOrBIXV0QeI7yiSk7b001pqhXqJa"
+    >
+    </stripe-buy-button>
     </div>
-    <p class="muted">Prefer your own amount? Use the <a class="contribute-link" href="#">contribution page</a> and enter anything you like.</p>
   </section>
   </div>
 </main>
