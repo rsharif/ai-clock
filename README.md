@@ -27,6 +27,7 @@ Camera needs a secure context: `localhost` works; any hosted domain needs HTTPS.
 
 - `POST /api/read-clock` — multipart `image` (upload) or JSON `{image: dataUrl, question}` (camera snapshot), or `{ring: true}` (Ring gateway frame). Returns `{is_clock, time, quip, digital, model_used}`.
 - `GET /api/stats` — per-model rows: reads, accuracy %, mean in/out tokens, p90 response. Needs `MONGO_URI`, else 503.
+- `POST /api/signups` — `{email}` validated server-side, stored in the `signups` collection (unique per address). Needs `MONGO_URI`, else 503.
 - `GET /api/health` — uptime check (reports each model's key status).
 
 ## Contribute tab

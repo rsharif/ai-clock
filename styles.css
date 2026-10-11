@@ -22,7 +22,7 @@ h1 { font-size: 2rem; margin: 0; text-align: center; }
 .card h2 { margin: 0 0 8px; font-size: 1rem; color: #333; }
 .row { display: flex; gap: 8px; }
 .row input { flex: 1; min-width: 0; }
-input[type="text"], input[type="file"] {
+input[type="text"], input[type="email"], input[type="file"] {
   background: #ffffff;
   color: #1c1c1c;
   border: 1px solid #ccc;

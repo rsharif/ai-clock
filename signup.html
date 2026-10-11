@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Read The Clock program — signup</title>
+<link rel="stylesheet" href="styles.css">
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-D2MV397LD8"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-D2MV397LD8');
+</script>
+</head>
+<body>
+<main class="wrap">
+  <h1>Read The Clock program</h1>
+  <p class="tag">Our professionals will train you to read an analog clock. Leave your email and we'll tell you when enrollment opens.</p>
+
+  <section class="card">
+    <form id="rtc-form">
+      <div class="row">
+        <input id="rtc-email" type="email" name="email" placeholder="you@example.com" required autocomplete="email" maxlength="254">
+        <button class="btn" type="submit">Sign up</button>
+      </div>
+      <p id="rtc-err" class="err" hidden></p>
+    </form>
+    <div id="rtc-done" hidden>
+      <p><strong>You're on the list.</strong> We'll email you when the Read The Clock program opens.</p>
+    </div>
+  </section>
+
+  <p><a href="index.html">← Back to the clock</a></p>
+</main>
+<script>
+(function () {
+  "use strict";
+  var form = document.getElementById("rtc-form");
+  var btn = form.querySelector("button[type=submit]");
+  var err = document.getElementById("rtc-err");
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var email = document.getElementById("rtc-email").value.trim();
+    if (!email) return;
+    btn.disabled = true;
+    err.hidden = true;
+    fetch("api/signups", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email })
+    }).then(function (r) {
+      return r.json().then(function (j) { return { ok: r.ok, body: j }; });
+    }).then(function (x) {
+      if (x.ok) {
+        form.hidden = true;
+        document.getElementById("rtc-done").hidden = false;
+      } else {
+        err.textContent = (x.body && x.body.error) || "Signup failed — try again.";
+        err.hidden = false;
+        btn.disabled = false;
+      }
+    }).catch(function () {
+      err.textContent = "Signup failed — check your connection and try again.";
+      err.hidden = false;
+      btn.disabled = false;
+    });
+  });
+})();
+</script>
+</body>
+</html>

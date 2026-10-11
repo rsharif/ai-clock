@@ -14,10 +14,13 @@ const multer = require("multer");
 const path = require("path");
 const { buildMessages, coerceResult, toDigital } = require("./lib/clock");
 const { computeAccuracy, computeStats, faceGapSec, formatExpected, sourceOf } = require("./lib/stats");
+const { validateEmail } = require("./lib/signup");
 
 // MongoDB (optional): per-request read records for the Statistics tab.
 // Without MONGO_URI, reads still work; /api/stats reports unconfigured.
 const READS_COLLECTION = "model_usage";
+const SIGNUPS_COLLECTION = "signups";
+let signupIndexReady = false;
 let mongoDb = null;
 async function getDb() {
   if (mongoDb) return mongoDb;
@@ -515,6 +518,33 @@ app.get("/api/stats", async function (req, res) {
     return res.json({ rows: computeStats(subset, { mergeSources: !known }), totalReads: totalReads });
   } catch (e) {
     return bad(res, 500, "stats unavailable");
+  }
+});
+
+/* ---------- Read The Clock program signups ---------- */
+app.post("/api/signups", async function (req, res) {
+  const email = validateEmail(req.body && req.body.email);
+  if (!email) return bad(res, 400, "enter a valid email address");
+  let db = null;
+  try {
+    db = await getDb();
+  } catch (e) {
+    db = null;
+  }
+  if (!db) return bad(res, 503, "database not configured — set MONGO_URI and restart");
+  try {
+    const col = db.collection(SIGNUPS_COLLECTION);
+    if (!signupIndexReady) {
+      try {
+        await col.createIndex({ email: 1 }, { unique: true });
+        signupIndexReady = true;
+      } catch (e) { /* index may already exist */ }
+    }
+    await col.insertOne({ email: email, createdAt: new Date(), program: "read-the-clock" });
+    return res.json({ ok: true });
+  } catch (e) {
+    if (e && e.code === 11000) return res.json({ ok: true, duplicate: true });
+    return bad(res, 500, "signup failed — try again");
   }
 });
 
