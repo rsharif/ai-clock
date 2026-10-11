@@ -80,6 +80,53 @@ test("computeStats aggregates one row per model", function () {
   assert.equal(gemma.p90ResponseMs, 1000);
 });
 
+test("computeStats splits one row per model per source", function () {
+  const rows = [
+    { model: "spark", source: "ring", accuracy: true },
+    { model: "spark", source: "ring", accuracy: false },
+    { model: "spark", source: "synthetic", accuracy: true },
+    { model: "spark", accuracy: true },
+  ];
+  const out = computeStats(rows);
+  assert.equal(out.length, 2);
+  const ring = out.filter(function (r) { return r.source === "ring"; })[0];
+  const synth = out.filter(function (r) { return r.source === "synthetic"; })[0];
+  assert.equal(ring.model, "spark");
+  assert.equal(ring.reads, 3);
+  assert.equal(ring.accuracyPct, 66.7);
+  assert.equal(synth.reads, 1);
+  assert.equal(synth.accuracyPct, 100);
+});
+
+test("computeStats merges sources into one row per model", function () {
+  const { computeStats } = require("../lib/stats");
+  const rows = [
+    { model: "spark", source: "ring", accuracy: true, promptTokens: 3000, completionTokens: 2000, requestTs: 1000, responseTs: 6000 },
+    { model: "spark", source: "synthetic", accuracy: false, promptTokens: 1000, completionTokens: 1000, requestTs: 2000, responseTs: 4000 },
+  ];
+  const out = computeStats(rows, { mergeSources: true });
+  assert.equal(out.length, 1);
+  assert.equal(out[0].model, "spark");
+  assert.equal(out[0].source, "all");
+  assert.equal(out[0].reads, 2);
+  assert.equal(out[0].accuracyPct, 50);
+  assert.equal(out[0].meanPromptTokens, 2000);
+  assert.equal(out[0].p90ResponseMs, 5000);
+});
+
+test("statDoc stores the source and defaults to ring", function () {
+  const server = require("../server.js");
+  const cfg = { name: "spark", model: "muse-spark-1.3" };
+  assert.equal(
+    server.statDoc(cfg, "q", { time: "3:20 PM" }, { requestTs: 1, responseTs: 2, usage: null }, true, null, "synthetic").source,
+    "synthetic"
+  );
+  assert.equal(
+    server.statDoc(cfg, "q", { time: "3:20 PM" }, { requestTs: 1, responseTs: 2, usage: null }, true).source,
+    "ring"
+  );
+});
+
 test("read records live in the model_usage collection", function () {
   const server = require("../server.js");
   assert.equal(server.READS_COLLECTION, "model_usage");

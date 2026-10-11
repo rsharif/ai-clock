@@ -13,7 +13,7 @@ const fs = require("fs");
 const multer = require("multer");
 const path = require("path");
 const { buildMessages, coerceResult, toDigital } = require("./lib/clock");
-const { computeAccuracy, computeStats, faceGapSec, formatExpected } = require("./lib/stats");
+const { computeAccuracy, computeStats, faceGapSec, formatExpected, sourceOf } = require("./lib/stats");
 
 // MongoDB (optional): per-request read records for the Statistics tab.
 // Without MONGO_URI, reads still work; /api/stats reports unconfigured.
@@ -42,25 +42,33 @@ function saveRead(doc) {
 }
 
 const CAPTURE_DIR = path.join(__dirname, "captures");
-try {
-  fs.mkdirSync(CAPTURE_DIR, { recursive: true });
-} catch (e) {
-  // captures are best-effort debug aid; reads still work without them
+
+// Frame captures are a local accuracy-debugging aid. Off by default;
+// set SAVE_CAPTURES=1 to write Ask frames to captures/ for debugging.
+function capturesEnabled() {
+  return /^(1|true|yes|on)$/i.test(String(process.env.SAVE_CAPTURES || ""));
 }
 
 // Persist one Ask frame for accuracy debugging. Returns the saved filename.
 function saveCapture(buffer, ext) {
+  try {
+    fs.mkdirSync(CAPTURE_DIR, { recursive: true });
+  } catch (e) {
+    // captures are best-effort debug aid; reads still work without them
+  }
   const stamp = new Date().toISOString().replace(/[:.]/g, "").replace("T", "-").slice(0, 17);
   const name = "capture-" + stamp + "-" + process.pid + "." + ext;
   fs.writeFileSync(path.join(CAPTURE_DIR, name), buffer);
   return name;
 }
 
-function stampTimeOnCapture(name, time) {
+function stampTimeOnCapture(name, time, model) {
   if (!time) return name;
   const tag = String(time).replace(/[^A-Za-z0-9]+/g, "");
   const ext = path.extname(name);
-  const renamed = path.basename(name, ext) + "--read-" + tag + ext;
+  let renamed = path.basename(name, ext) + "--read-" + tag;
+  if (model) renamed += "--" + String(model).replace(/[^A-Za-z0-9]+/g, "");
+  renamed += ext;
   try {
     fs.renameSync(path.join(CAPTURE_DIR, name), path.join(CAPTURE_DIR, renamed));
     return renamed;
@@ -70,8 +78,10 @@ function stampTimeOnCapture(name, time) {
 }
 
 const PORT = parseInt(process.env.PORT || "8001", 10);
-// Model providers. The page dropdown posts {model: "spark"|"gemma"};
-// anything else falls back to spark. Keys stay server-side in .env.
+// Model providers. One consistent triple per provider in .env:
+//   <NAME>_BASE_URL, <NAME>_MODEL, <NAME>_API_KEY
+// (spark also honors the legacy LLM_* names as fallback). The page dropdown
+// posts {model: "spark"|"gemma"|"gemini"}; anything else falls back to spark.
 function selectModel(name) {
   if (name === "gemma") {
     return {
@@ -93,10 +103,13 @@ function selectModel(name) {
   }
   return {
     name: "spark",
-    baseUrl: process.env.LLM_BASE_URL || "https://api.meta.ai/v1/chat/completions",
-    apiKey: process.env.LLM_API_KEY || "",
-    model: process.env.LLM_MODEL || "muse-spark-1.3",
-    keyVar: "LLM_API_KEY",
+    baseUrl:
+      process.env.SPARK_BASE_URL ||
+      process.env.LLM_BASE_URL ||
+      "https://api.meta.ai/v1/chat/completions",
+    apiKey: process.env.SPARK_API_KEY || process.env.LLM_API_KEY || "",
+    model: process.env.SPARK_MODEL || process.env.LLM_MODEL || "muse-spark-1.3",
+    keyVar: "SPARK_API_KEY",
   };
 }
 // Ring path: frame grabs go through the local go2rtc gateway (same machine
@@ -104,7 +117,13 @@ function selectModel(name) {
 const GO2RTC_URL = (process.env.GO2RTC_URL || "http://localhost:1984").replace(/\/+$/, "");
 const RING_SRC = process.env.RING_SRC || "clockcam";
 
-async function fetchRingFrame() {
+function sleep(ms) {
+  return new Promise(function (resolve) {
+    setTimeout(resolve, ms);
+  });
+}
+
+async function fetchRingFrameOnce() {
   let r;
   try {
     r = await fetch(GO2RTC_URL + "/api/frame.jpeg?src=" + encodeURIComponent(RING_SRC));
@@ -125,6 +144,21 @@ async function fetchRingFrame() {
     throw err;
   }
   return buffer;
+}
+
+// Ring snapshots flake: a first grab often 500s while a retry succeeds.
+// One silent retry (1.5s apart) before surfacing the 502 to the page.
+async function fetchRingFrame() {
+  let last;
+  for (let i = 0; i < 2; i++) {
+    try {
+      return await fetchRingFrameOnce();
+    } catch (e) {
+      last = e;
+      if (i === 0) await sleep(1500);
+    }
+  }
+  throw last;
 }
 
 const app = express();
@@ -233,6 +267,10 @@ async function readClockFromDataUrl(dataUrl, question, cfg, requestTs) {
       2
     )
   );
+  // No response must hang the page forever: cap the upstream wait
+  // (MODEL_TIMEOUT_MS, default 120s) so a stalled model surfaces as a
+  // 502 the page can show instead of "…" until the heat death.
+  const timeoutMs = parseInt(process.env.MODEL_TIMEOUT_MS || "120000", 10) || 120000;
   let resp;
   try {
     resp = await fetch(cfg.baseUrl, {
@@ -242,9 +280,15 @@ async function readClockFromDataUrl(dataUrl, question, cfg, requestTs) {
         Authorization: "Bearer " + cfg.apiKey,
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (e) {
-    const err = new Error("vision model unreachable: " + (e.message || e));
+    const timedOut = e && (e.name === "TimeoutError" || e.name === "AbortError");
+    const err = new Error(
+      timedOut
+        ? "vision model timed out after " + Math.round(timeoutMs / 1000) + "s with no response"
+        : "vision model unreachable: " + (e.message || e)
+    );
     err.status = 502;
     throw err;
   }
@@ -309,7 +353,7 @@ async function readClockFromDataUrl(dataUrl, question, cfg, requestTs) {
 // One stat record per model attempt. success = the model answered with
 // parseable JSON (including "not a clock"); accuracy is scored only when
 // success produced a time, comparing it against the request moment.
-function statDoc(cfg, question, result, out, success, error) {
+function statDoc(cfg, question, result, out, success, error, source) {
   const usage = (out && out.usage) || {};
   const requestDate = out && typeof out.requestTs === "number" ? new Date(out.requestTs) : null;
   const accuracy =
@@ -319,6 +363,9 @@ function statDoc(cfg, question, result, out, success, error) {
   return {
     model: cfg.name,
     modelId: cfg.model,
+    // "ring" | "synthetic" | "upload". Docs saved before sources existed
+    // were all ring reads, so missing means ring.
+    source: source === "synthetic" || source === "upload" ? source : "ring",
     question: question || "",
     reading: result && result.time ? result.time : null,
     error: typeof error === "string" && error ? error.slice(0, 300) : null,
@@ -388,7 +435,7 @@ app.post("/api/read-clock", upload.single("image"), async function (req, res) {
     return bad(res, 400, "send a clock photo as multipart 'image' or JSON {image}");
   }
   let capture = null;
-  if (frame) {
+  if (frame && capturesEnabled()) {
     try {
       capture = saveCapture(frame.buffer, frame.ext);
     } catch (e) {
@@ -396,12 +443,20 @@ app.post("/api/read-clock", upload.single("image"), async function (req, res) {
     }
   }
   const requestTs = Date.now();
+  // Read source: explicit body field wins, legacy ring flag next,
+  // anything else is an upload.
+  const source =
+    req.body && req.body.source === "synthetic"
+      ? "synthetic"
+      : req.body && req.body.ring
+        ? "ring"
+        : "upload";
   try {
     const out = await readClockFromDataUrl(dataUrl, question, cfg, requestTs);
     const result = out.reading;
-    saveRead(statDoc(cfg, question, result, out, out.parsed));
+    saveRead(statDoc(cfg, question, result, out, out.parsed, null, source));
     if (capture) {
-      capture = stampTimeOnCapture(capture, result.time);
+      capture = stampTimeOnCapture(capture, result.time, cfg.name);
       console.log(JSON.stringify({ event: "read_clock_capture", file: capture, time: result.time, model_used: cfg.name }));
     }
     result.capture = capture;
@@ -409,7 +464,7 @@ app.post("/api/read-clock", upload.single("image"), async function (req, res) {
     if (result.time) result.digital = toDigital(result.time);
     return res.json(result);
   } catch (e) {
-    saveRead(statDoc(cfg, question, null, { requestTs: requestTs, responseTs: Date.now(), usage: null }, false, e.message || "read failed"));
+    saveRead(statDoc(cfg, question, null, { requestTs: requestTs, responseTs: Date.now(), usage: null }, false, e.message || "read failed", source));
     return bad(res, e.status || 500, e.message || "read failed");
   }
 });
@@ -426,7 +481,12 @@ app.get("/api/stats", async function (req, res) {
     const col = db.collection(READS_COLLECTION);
     const totalReads = await col.countDocuments();
     const docs = await col.find({}).sort({ createdAt: -1 }).limit(10000).toArray();
-    return res.json({ rows: computeStats(docs), totalReads: totalReads });
+    // ?source=ring|synthetic|upload filters to that source (one row per
+    // model); anything else merges all sources into one row per model.
+    const want = req.query && req.query.source;
+    const known = want === "ring" || want === "synthetic" || want === "upload";
+    const subset = known ? docs.filter(function (d) { return sourceOf(d) === want; }) : docs;
+    return res.json({ rows: computeStats(subset, { mergeSources: !known }), totalReads: totalReads });
   } catch (e) {
     return bad(res, 500, "stats unavailable");
   }
@@ -444,3 +504,6 @@ module.exports.extractMessageText = extractMessageText;
 module.exports.selectModel = selectModel;
 module.exports.READS_COLLECTION = READS_COLLECTION;
 module.exports.statDoc = statDoc;
+module.exports.capturesEnabled = capturesEnabled;
+module.exports.stampTimeOnCapture = stampTimeOnCapture;
+module.exports.readClockFromDataUrl = readClockFromDataUrl;

@@ -7,11 +7,12 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<button id="menu-btn" type="button" aria-label="Open menu">&#9776;</button>
 <main class="wrap">
-  <h1>AI Clock</h1>
-  <p class="tag">The world's first AI clock, watching the wall so you don't have to.</p>
+  <h1>World's First AI Clock</h1>
+  <p class="tag">The world's first AI clock, translating ancient analog pie-charts so digital natives don't have to panic.</p>
 
-  <nav class="tabs">
+  <nav class="tabs" id="sidenav">
     <button id="tab-clock" class="tab active" type="button">Clock</button>
     <button id="tab-stats" class="tab" type="button">Statistics</button>
     <button id="tab-contribute" class="tab" type="button">Contribute</button>
@@ -19,20 +20,40 @@
 
   <div id="view-clock">
   <section class="card">
-    <div class="row">
-      <button id="ask-btn" class="btn big" type="button">What time is it now?</button>
+    <div class="subtabs">
+      <button id="subtab-ring" class="subtab" type="button">Ring Clock</button>
+      <button id="subtab-synth" class="subtab active" type="button">Synthetic Clock</button>
+    </div>
+    <div id="pane-ring" hidden>
+      <iframe id="ringview" title="Ring camera stream" allow="autoplay; fullscreen; picture-in-picture"></iframe>
+    </div>
+    <div id="pane-synth">
+      <svg id="synth-clock" viewBox="0 0 300 300" role="img" aria-label="Synthetic analog clock">
+        <circle cx="150" cy="150" r="140" fill="#ffffff" stroke="#ccc" stroke-width="3"/>
+        <g id="synth-ticks"></g>
+        <g font-family="-apple-system, 'Segoe UI', system-ui, sans-serif" font-size="26" font-weight="700" fill="#333" text-anchor="middle">
+          <text x="150" y="58">12</text>
+          <text x="252" y="159">3</text>
+          <text x="150" y="264">6</text>
+          <text x="48" y="159">9</text>
+        </g>
+        <line id="synth-hour" x1="150" y1="150" x2="150" y2="85" stroke="#1c1c1c" stroke-width="9" stroke-linecap="round"/>
+        <line id="synth-min" x1="150" y1="150" x2="150" y2="55" stroke="#1c1c1c" stroke-width="6" stroke-linecap="round"/>
+        <line id="synth-sec" x1="150" y1="165" x2="150" y2="50" stroke="#e07b39" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="150" cy="150" r="7" fill="#e07b39"/>
+      </svg>
+    </div>
+    <div class="askrow">
+      <button id="ask-btn" class="btn big" type="button">What is this clock saying?</button>
+    </div>
+    <div class="askrow">
       <select id="model" aria-label="Vision model">
-        <option value="spark" selected>Spark (accurate, slow)</option>
-        <option value="gemini">Gemini (balanced)</option>
-        <option value="gemma">Gemma (fast, sloppy)</option>
+        <option value="spark" selected>Model: Spark (accurate, slow)</option>
+        <option value="gemini">Model: Gemini (balanced)</option>
+        <option value="gemma">Model: Gemma (fast, sloppy)</option>
       </select>
     </div>
-    <p id="cam-status" class="muted">connecting to the clock…</p>
-  </section>
-
-  <section class="card">
-    <h2>Live clock</h2>
-    <iframe id="ringview" title="Ring camera stream" allow="autoplay; fullscreen; picture-in-picture"></iframe>
+    <p id="ask-status" class="muted" hidden></p>
   </section>
 
   <section class="card answer">
@@ -46,16 +67,23 @@
   <div id="view-stats" hidden>
   <section class="card">
     <h2>Model statistics</h2>
-    <div class="row">
-      <button id="stats-refresh" class="btn" type="button">Refresh</button>
-      <span id="stats-status" class="muted"></span>
+    <div class="stats-bar">
+      <select id="stats-source" aria-label="Filter by source">
+        <option value="all" selected>All sources</option>
+        <option value="ring">Ring</option>
+        <option value="synthetic">Synthetic</option>
+      </select>
+      <button id="stats-refresh" class="icon-btn" type="button" aria-label="Refresh statistics">&#8635;</button>
     </div>
+    <span id="stats-status" class="muted"></span>
+    <div class="table-scroll">
     <table id="stats-table">
       <thead>
         <tr><th>Model</th><th>Reads</th><th>Accuracy</th><th>Mean in-tokens</th><th>Mean out-tokens</th><th>p90 response</th></tr>
       </thead>
       <tbody id="stats-body"></tbody>
     </table>
+    </div>
   </section>
   </div>
 
@@ -72,6 +100,7 @@
     </div>
   </section>
   </div>
+  <footer class="disclaimer">Disclaimer: If you have dyscalculia, a neurological condition, or actual clinical difficulties reading clocks, please bypass this app — you get a free pass. This is purely for digital natives who panic when numbers aren't glowing LED rectangles.</footer>
 </main>
 <script src="app.js"></script>
 </body>
