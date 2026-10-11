@@ -350,12 +350,22 @@ async function readClockFromDataUrl(dataUrl, question, cfg, requestTs) {
   };
 }
 
-// Scoring moment: prefer the client's wall clock (epoch ms) when it looks
-// sane — the server may run in another timezone (e.g. UTC on Render) than
-// the clock being read. Anything else falls back to the server moment.
-function scoringDate(out, scoreTs) {
-  if (typeof scoreTs === "number" && isFinite(scoreTs) && scoreTs >= 1e12 && scoreTs < 1e13) {
-    return new Date(scoreTs);
+// Scoring moment: prefer the client's wall clock when it arrives intact —
+// the server may run in another timezone (e.g. UTC on Render) than the
+// clock being read, and an epoch alone cannot recover wall-clock fields:
+// getHours() on the server would just re-render the server's own zone.
+// score is { now: epoch ms, tzOffset: getTimezoneOffset() minutes }.
+// Anything malformed falls back to the server request moment. The returned
+// Date is shifted so the server's own getHours()/getMinutes() read out the
+// CLIENT's wall fields; stored request/response timestamps stay server-side.
+function scoringDate(out, score) {
+  const ok = score && typeof score.now === "number" && isFinite(score.now) &&
+    score.now >= 1e12 && score.now < 1e13 &&
+    typeof score.tzOffset === "number" && isFinite(score.tzOffset) &&
+    score.tzOffset >= -840 && score.tzOffset <= 720;
+  if (ok) {
+    const serverOffset = new Date(score.now).getTimezoneOffset();
+    return new Date(score.now + (serverOffset - score.tzOffset) * 60000);
   }
   return out && typeof out.requestTs === "number" ? new Date(out.requestTs) : null;
 }
@@ -364,9 +374,9 @@ function scoringDate(out, scoreTs) {
 // parseable JSON (including "not a clock"); accuracy is scored only when
 // success produced a time, comparing it against the scoring moment above.
 // Stored request/response timestamps always stay server-side (latency).
-function statDoc(cfg, question, result, out, success, error, source, scoreTs) {
+function statDoc(cfg, question, result, out, success, error, source, score) {
   const usage = (out && out.usage) || {};
-  const requestDate = scoringDate(out, scoreTs);
+  const requestDate = scoringDate(out, score);
   const accuracy =
     success && result && result.time && requestDate
       ? computeAccuracy(result.time, requestDate)
@@ -464,11 +474,13 @@ app.post("/api/read-clock", upload.single("image"), async function (req, res) {
         : "upload";
   // Client wall clock for accuracy scoring (validated inside statDoc);
     // the server may run in another timezone than the clock being read.
-  const clientNow = req.body && typeof req.body.clientNow === "number" ? req.body.clientNow : undefined;
+  const clientClock = req.body && typeof req.body === "object"
+    ? { now: req.body.clientNow, tzOffset: req.body.clientTzOffset }
+    : undefined;
   try {
     const out = await readClockFromDataUrl(dataUrl, question, cfg, requestTs);
     const result = out.reading;
-    saveRead(statDoc(cfg, question, result, out, out.parsed, null, source, clientNow));
+    saveRead(statDoc(cfg, question, result, out, out.parsed, null, source, clientClock));
     if (capture) {
       capture = stampTimeOnCapture(capture, result.time, cfg.name);
       console.log(JSON.stringify({ event: "read_clock_capture", file: capture, time: result.time, model_used: cfg.name }));

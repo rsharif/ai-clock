@@ -152,12 +152,20 @@ test("statDoc scores against the client clock when provided", function () {
   const server = require("../server.js");
   const cfg = { name: "gemini", model: "gemini-3.8-flash" };
   const serverTs = new Date(2026, 9, 10, 22, 54, 58).getTime();
-  const clientTs = serverTs + 5 * 3600 * 1000; // client wall clock 5h ahead (UTC server, PDT clock)
+  // Client wall clock 5h off the server at the same instant, expressed
+  // portably: whatever zone this machine runs in, the client reads a
+  // different wall time there (UTC server, PDT clock). An epoch alone would
+  // re-render in the server zone and fail. Direction flips near UTC+14 so
+  // the simulated offset stays within the real-world range.
+  const serverOffset = new Date(serverTs).getTimezoneOffset();
+  const shiftMin = serverOffset - 300 < -840 ? 300 : -300;
+  const ahead = shiftMin === -300;
+  const client = { now: serverTs, tzOffset: serverOffset + shiftMin };
   const out = { requestTs: serverTs, responseTs: serverTs + 40000, usage: null };
-  const doc = server.statDoc(cfg, "q", { time: "3:55 AM" }, out, true, null, "ring", clientTs);
+  const doc = server.statDoc(cfg, "q", { time: ahead ? "3:55 AM" : "5:55 PM" }, out, true, null, "ring", client);
   assert.equal(doc.accuracy, true);
   assert.equal(doc.off_by_sec <= 180, true);
-  assert.equal(doc.expected_response, "3:54 AM");
+  assert.equal(doc.expected_response, ahead ? "3:54 AM" : "5:54 PM");
   assert.equal(doc.requestTs, serverTs);
   assert.equal(doc.responseMs, 40000);
 });
@@ -167,8 +175,14 @@ test("statDoc falls back to the server moment on a bad client clock", function (
   const cfg = { name: "gemini", model: "gemini-3.8-flash" };
   const serverTs = new Date(2026, 9, 10, 22, 54, 58).getTime();
   const out = { requestTs: serverTs, responseTs: serverTs + 1000, usage: null };
-  ["garbage", 0, NaN, 1760000000].forEach(function (bad) {
-    const doc = server.statDoc(cfg, "q", { time: "3:55 AM" }, out, true, null, "ring", bad);
+  const goodClient = { now: serverTs, tzOffset: new Date(serverTs).getTimezoneOffset() - 300 };
+  [undefined, null, "garbage", 0, NaN, 1760000000].forEach(function (badNow) {
+    const doc = server.statDoc(cfg, "q", { time: "3:55 AM" }, out, true, null, "ring", { now: badNow, tzOffset: 0 });
+    assert.equal(doc.accuracy, false);
+    assert.equal(doc.expected_response, "10:54 PM");
+  });
+  ["garbage", NaN, 99999, -99999].forEach(function (badTz) {
+    const doc = server.statDoc(cfg, "q", { time: "3:55 AM" }, out, true, null, "ring", { now: goodClient.now, tzOffset: badTz });
     assert.equal(doc.accuracy, false);
     assert.equal(doc.expected_response, "10:54 PM");
   });

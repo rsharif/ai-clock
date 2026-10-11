@@ -87,7 +87,7 @@ async function askRing() {
     res = await fetch("/api/read-clock", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ring: true, source: "ring", question: QUESTION, model: $("model").value, clientNow: Date.now() }),
+      body: JSON.stringify({ ring: true, source: "ring", question: QUESTION, model: $("model").value, clientNow: Date.now(), clientTzOffset: new Date().getTimezoneOffset() }),
     });
   } catch (e) {
     stopWaitLines();
@@ -228,7 +228,7 @@ async function askSynthetic() {
     res = await fetch("/api/read-clock", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image: dataUrl, source: "synthetic", question: QUESTION, model: $("model").value, clientNow: Date.now() }),
+      body: JSON.stringify({ image: dataUrl, source: "synthetic", question: QUESTION, model: $("model").value, clientNow: Date.now(), clientTzOffset: new Date().getTimezoneOffset() }),
     });
   } catch (e) {
     stopWaitLines();
