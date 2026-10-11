@@ -8,21 +8,23 @@ function at(h, m, s) {
   return new Date(2026, 9, 4, h, m, s || 0);
 }
 
-test("accuracy tolerance is ±150 seconds", function () {
+test("accuracy tolerance is ±180 seconds (±3 minutes)", function () {
   const { ACCURACY_TOLERANCE_SEC } = require("../lib/stats");
-  assert.equal(ACCURACY_TOLERANCE_SEC, 150);
+  assert.equal(ACCURACY_TOLERANCE_SEC, 180);
 });
 
 test("accuracy passes within tolerance", function () {
   assert.equal(computeAccuracy("3:20 PM", at(15, 20, 30)), true);
   assert.equal(computeAccuracy("3:20 PM", at(15, 19, 20)), true);
   assert.equal(computeAccuracy("3:20 PM", at(15, 21, 0)), true);
-  assert.equal(computeAccuracy("3:20 PM", at(15, 22, 5)), true);
+  assert.equal(computeAccuracy("3:20 PM", at(15, 22, 0)), true);
   assert.equal(computeAccuracy("3:20 PM", at(15, 22, 30)), true);
+  assert.equal(computeAccuracy("3:20 PM", at(15, 23, 0)), true);
 });
 
 test("accuracy fails beyond tolerance", function () {
-  assert.equal(computeAccuracy("3:20 PM", at(15, 23, 0)), false);
+  assert.equal(computeAccuracy("3:20 PM", at(15, 23, 5)), false);
+  assert.equal(computeAccuracy("3:20 PM", at(15, 23, 30)), false);
   assert.equal(computeAccuracy("11:42 AM", at(15, 20, 0)), false);
 });
 
@@ -144,6 +146,34 @@ test("statDoc records the error reason on failure", function () {
   assert.equal(ok.success, true);
   assert.equal(ok.error, null);
   assert.equal(ok.promptTokens, 10);
+});
+
+test("statDoc scores against the client clock when provided", function () {
+  const server = require("../server.js");
+  const cfg = { name: "gemini", model: "gemini-3.8-flash" };
+  const serverTs = new Date(2026, 9, 10, 22, 54, 58).getTime();
+  const clientTs = serverTs + 5 * 3600 * 1000; // client wall clock 5h ahead (UTC server, PDT clock)
+  const out = { requestTs: serverTs, responseTs: serverTs + 40000, usage: null };
+  const doc = server.statDoc(cfg, "q", { time: "3:55 AM" }, out, true, null, "ring", clientTs);
+  assert.equal(doc.accuracy, true);
+  assert.equal(doc.off_by_sec <= 180, true);
+  assert.equal(doc.expected_response, "3:54 AM");
+  assert.equal(doc.requestTs, serverTs);
+  assert.equal(doc.responseMs, 40000);
+});
+
+test("statDoc falls back to the server moment on a bad client clock", function () {
+  const server = require("../server.js");
+  const cfg = { name: "gemini", model: "gemini-3.8-flash" };
+  const serverTs = new Date(2026, 9, 10, 22, 54, 58).getTime();
+  const out = { requestTs: serverTs, responseTs: serverTs + 1000, usage: null };
+  ["garbage", 0, NaN, 1760000000].forEach(function (bad) {
+    const doc = server.statDoc(cfg, "q", { time: "3:55 AM" }, out, true, null, "ring", bad);
+    assert.equal(doc.accuracy, false);
+    assert.equal(doc.expected_response, "10:54 PM");
+  });
+  const legacy = server.statDoc(cfg, "q", { time: "10:55 PM" }, out, true, null, "ring");
+  assert.equal(legacy.accuracy, true);
 });
 
 test("computeStats handles empty and unscored input", function () {

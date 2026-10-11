@@ -350,12 +350,23 @@ async function readClockFromDataUrl(dataUrl, question, cfg, requestTs) {
   };
 }
 
+// Scoring moment: prefer the client's wall clock (epoch ms) when it looks
+// sane — the server may run in another timezone (e.g. UTC on Render) than
+// the clock being read. Anything else falls back to the server moment.
+function scoringDate(out, scoreTs) {
+  if (typeof scoreTs === "number" && isFinite(scoreTs) && scoreTs >= 1e12 && scoreTs < 1e13) {
+    return new Date(scoreTs);
+  }
+  return out && typeof out.requestTs === "number" ? new Date(out.requestTs) : null;
+}
+
 // One stat record per model attempt. success = the model answered with
 // parseable JSON (including "not a clock"); accuracy is scored only when
-// success produced a time, comparing it against the request moment.
-function statDoc(cfg, question, result, out, success, error, source) {
+// success produced a time, comparing it against the scoring moment above.
+// Stored request/response timestamps always stay server-side (latency).
+function statDoc(cfg, question, result, out, success, error, source, scoreTs) {
   const usage = (out && out.usage) || {};
-  const requestDate = out && typeof out.requestTs === "number" ? new Date(out.requestTs) : null;
+  const requestDate = scoringDate(out, scoreTs);
   const accuracy =
     success && result && result.time && requestDate
       ? computeAccuracy(result.time, requestDate)
@@ -451,10 +462,13 @@ app.post("/api/read-clock", upload.single("image"), async function (req, res) {
       : req.body && req.body.ring
         ? "ring"
         : "upload";
+  // Client wall clock for accuracy scoring (validated inside statDoc);
+    // the server may run in another timezone than the clock being read.
+  const clientNow = req.body && typeof req.body.clientNow === "number" ? req.body.clientNow : undefined;
   try {
     const out = await readClockFromDataUrl(dataUrl, question, cfg, requestTs);
     const result = out.reading;
-    saveRead(statDoc(cfg, question, result, out, out.parsed, null, source));
+    saveRead(statDoc(cfg, question, result, out, out.parsed, null, source, clientNow));
     if (capture) {
       capture = stampTimeOnCapture(capture, result.time, cfg.name);
       console.log(JSON.stringify({ event: "read_clock_capture", file: capture, time: result.time, model_used: cfg.name }));
